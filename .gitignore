@@ -12,3 +12,11 @@ docs/
 
 # Dotenv file
 .env
+
+node_modules/
+coverage-report/
+.vscode/
+.wake/
+
+.gas-snapshot
+yarn.lock

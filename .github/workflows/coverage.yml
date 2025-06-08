@@ -1,4 +1,4 @@
-name: test
+name: coverage
 
 on:
   push:
@@ -21,12 +21,16 @@ env:
   LAYERZERO_HOLESKY_DVN: ${{ secrets.LAYERZERO_HOLESKY_DVN }}
   LAYERZERO_SEPOLIA_DVN: ${{ secrets.LAYERZERO_SEPOLIA_DVN }}
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
-  test:
+  coverage:
     strategy:
       fail-fast: true
 
-    name: Foundry tests
+    name: Foundry coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,11 +44,8 @@ jobs:
         run: |
           forge --version
 
-      - name: "Generate a fuzz seed that changes weekly to avoid burning through RPC allowance"
-        run: >
-          echo "FOUNDRY_FUZZ_SEED=$(
-            echo $(($EPOCHSECONDS - $EPOCHSECONDS % 604800))
-          )" >> $GITHUB_ENV
+      - name: Install lcov
+        run: sudo apt-get -y install lcov
 
       - name: Set yarn cache directory path
         id: yarn-cache-dir-path
@@ -64,17 +65,30 @@ jobs:
       - name: Install node.js dependencies
         run: yarn --frozen-lockfile
 
-      - name: Run Forge build
+      - name: Run generate html report
         run: |
-          make build
-        id: build
+          make coverage-html
+        id: coverage-html
 
-      - name: Run Forge tests
+      - name: Generate summary report
         run: |
-          make test
-        id: test
+          lcov --summary lcov.info > coverage-report/summary.md
+          sed -i '1d' coverage-report/summary.md
+          sed -i '/Message summary:/,$d' coverage-report/summary.md
 
-      - name: "Add test summary"
-        run: |
-          echo "## Tests result" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
+      - name: Upload coverage report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoverageReport # Artifact name
+          path: coverage-report # Directory containing files to upload
+
+      - name: Add comment to PR
+        if: github.event_name == 'pull_request' && env.GH_TOKEN != ''
+        run: gh pr comment $PR_NUMBER --body-file coverage-report/summary.md
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          PR_NUMBER: ${{ github.event.number }}
+
+      - name: Publish coverage in build summary
+        run: cat coverage-report/summary.md >> $GITHUB_STEP_SUMMARY
+        shell: bash
