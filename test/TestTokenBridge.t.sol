@@ -31,15 +31,19 @@ contract TestTokenBridge is Test {
         sepoliaEID = uint32(vm.envUint("SEPOLIA_EID"));
         holeskyEID = uint32(vm.envUint("HOLESKY_EID"));
         createFork();
-        owner = vm.addr(vm.envUint("PRIVATE_KEY"));
+        owner = makeAddr("OWNER");
+        vm.selectFork(sepoliaFork);
+        vm.deal(owner, 100 ether);
+        vm.selectFork(holeskyFork);
+        vm.deal(owner, 100 ether);
 
         deploySepolia();
         deployHolesky();
 
         setPeer();
 
-        // setSendConfig();
-        // setReceiveConfig();
+        setSendConfig();
+        setReceiveConfig();
 
         vm.selectFork(sepoliaFork);
         vm.startBroadcast(owner);
